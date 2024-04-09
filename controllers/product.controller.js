@@ -29,8 +29,8 @@ class ProductController {
 
       let totalPages = Math.ceil(+productSize.count / limit)
 
-      const nextPage = (page + 1) <= totalPages ? page + 1 : null
-      const prevPage = (page - 1) > 0 ? page - 1 : null
+      const nextPage = page + 1 <= totalPages ? page + 1 : null
+      const prevPage = page - 1 > 0 ? page - 1 : null
 
       const sql = `
             SELECT
@@ -242,7 +242,7 @@ const filterOption = (params) => {
 
 const pagination = (params) => {
   if (Object.entries(params).length === 0) {
-    return " "
+    return ' '
   } else {
     let { limit, page } = params
 

@@ -1,9 +1,37 @@
 const pool = require('../config/config.js')
+const DEFAULT_PAGE = 1
+const DEFAULT_LIMIT = 2
 
 class ProductController {
   static findAll = async (req, res, next) => {
     try {
       const filterStr = filterOption(req.query)
+      const paginationStr = pagination(req.query)
+
+      const countSQL = `
+         SELECT
+            COUNT(DISTINCT products.*)
+        FROM
+            products
+        INNER JOIN product_stores
+            ON products.id = product_stores.product_id
+        INNER JOIN stores
+            ON stores.id = product_stores.store_id
+      `
+      const dataCount = await pool.query(countSQL)
+
+      let productSize = dataCount.rows[0]
+
+      let { limit, page } = req.query
+
+      limit = +limit || DEFAULT_LIMIT
+      page = +page || DEFAULT_PAGE
+
+      let totalPages = Math.ceil(+productSize.count / limit)
+
+      const nextPage = (page + 1) <= totalPages ? page + 1 : null
+      const prevPage = (page - 1) > 0 ? page - 1 : null
+
       const sql = `
             SELECT
                 products.*,
@@ -21,10 +49,17 @@ class ProductController {
             ${filterStr}
             GROUP BY
                 products.id
+            ${paginationStr}
         `
 
       const result = await pool.query(sql)
-      res.status(200).json(result.rows)
+      res.status(200).json({
+        data: result.rows,
+        totalPages,
+        currentPage: page,
+        nextPage,
+        prevPage,
+      })
     } catch (err) {
       next(err)
     }
@@ -198,9 +233,24 @@ const filterOption = (params) => {
     if (min_price) filterArray.push(`products.price >= ${min_price} `)
     if (max_price) filterArray.push(`products.price <= ${max_price}`)
     if (q) filterArray.push(`products.title ILIKE '%${q}%'`)
+    if (filterArray.length === 0) return ''
 
-    queryString += filterArray.join(" AND ")
+    queryString += filterArray.join(' AND ')
     return queryString
   }
 }
+
+const pagination = (params) => {
+  if (Object.entries(params).length === 0) {
+    return " "
+  } else {
+    let { limit, page } = params
+
+    limit = limit || DEFAULT_LIMIT
+    page = page || DEFAULT_PAGE
+
+    return ` LIMIT ${limit} OFFSET ${(page - 1) * limit} `
+  }
+}
+
 module.exports = ProductController
